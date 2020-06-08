@@ -1,43 +1,138 @@
-version: '2'
-
+version: "2"
 services:
-  hdfs-namenode:
-    image: docker.pkg.github.com/bert-z/spark-graphx/hadoop:2.7
+  namenode:
+    image: bde2020/hadoop-namenode:1.1.0-hadoop2.7.1-java8
+    container_name: namenode
     volumes:
-      - ./data/namenode:/hadoop/dfs/name
+      - hadoop_namenode:/hadoop/dfs/name
+      - ./input_files:/input_files
+    environment:
+      - CLUSTER_NAME=test
+    env_file:
+      - ./hadoop.env
     ports:
-    # HDFS port
-    - "9000:9000"
-    # HDFS NameNode WebUI
-    - "50070:50070"
-    cpu_shares: 3000
-    mem_limit: 2g
-
-  hdfs-datanode:
-    image: docker.pkg.github.com/bert-z/spark-graphx/hadoop:2.7
+      - 50070:50070
+  
+  resourcemanager:
+    image: bde2020/hadoop-resourcemanager:1.1.0-hadoop2.7.1-java8
+    container_name: resourcemanager
+    depends_on:
+      - namenode
+      - datanode1
+      - datanode2
+    env_file:
+      - ./hadoop.env
+  
+  historyserver:
+    image: bde2020/hadoop-historyserver:1.1.0-hadoop2.7.1-java8
+    container_name: historyserver
+    depends_on:
+      - namenode
+      - datanode1
+      - datanode2
     volumes:
-      - ./data/datanode:/hadoop/dfs/data
-    cpu_shares: 3000
-    mem_limit: 2g
+      - hadoop_historyserver:/hadoop/yarn/timeline
+    env_file:
+      - ./hadoop.env
+  
+  nodemanager1:
+    image: bde2020/hadoop-nodemanager:1.1.0-hadoop2.7.1-java8
+    container_name: nodemanager1
+    depends_on:
+      - namenode
+      - datanode1
+      - datanode2
+    env_file:
+      - ./hadoop.env
+  
+  datanode1:
+    image: bde2020/hadoop-datanode:1.1.0-hadoop2.7.1-java8
+    container_name: datanode1
+    depends_on:
+      - namenode
+    volumes:
+      - hadoop_datanode1:/hadoop/dfs/data
+    env_file:
+      - ./hadoop.env
+  
+  datanode2:
+    image: bde2020/hadoop-datanode:1.1.0-hadoop2.7.1-java8
+    container_name: datanode2
+    depends_on:
+      - namenode
+    volumes:
+      - hadoop_datanode2:/hadoop/dfs/data
+    env_file:
+      - ./hadoop.env
+  
+  datanode3:
+    image: bde2020/hadoop-datanode:1.1.0-hadoop2.7.1-java8
+    container_name: datanode3
+    depends_on:
+      - namenode
+    volumes:
+      - hadoop_datanode3:/hadoop/dfs/data
+    env_file:
+      - ./hadoop.env
 
-  spark-master:
-    image: docker.pkg.github.com/bert-z/spark-graphx/spark:2.4
+  master:
+    image: gettyimages/spark:2.3.0-hadoop-2.8
+    container_name: master
+    command: bin/spark-class org.apache.spark.deploy.master.Master -h master
+    hostname: master
+    environment:
+      MASTER: spark://master:7077
+      SPARK_CONF_DIR: /conf
+      SPARK_PUBLIC_DNS: localhost
+    links:
+      - namenode
+    expose:
+      - 7001
+      - 7002
+      - 7003
+      - 7004
+      - 7005
+      - 7077
+      - 6066
     ports:
-    # Spark master WebUI port
-    - "8080:8080"
-    # Spark master job submission port
-    - "7077:7077"
-    entrypoint: ['/bin/sh', '-c', '/opt/spark-2.4.5-bin-hadoop2.7/sbin/start-master.sh']
-    cpu_shares: 3000
-    mem_limit: 2g
+      - 4040:4040
+      - 6066:6066
+      - 7077:7077
+      - 8080:8080
+    volumes:
+      - ./conf/master:/conf
+      - ./data:/tmp/data
+      - ./jars:/root/jars
 
-  spark-worker:
-    image: docker.pkg.github.com/bert-z/spark-graphx/spark:2.4
-    entrypoint: ['/bin/sh', '-c', '/opt/spark-2.4.5-bin-hadoop2.7/sbin/start-slave.sh spark://spark-master:7077']
-    cpu_shares: 3000
-    mem_limit: 2g
-
-  zeppelin:
-    image: apache/zeppelin:0.9.0
+  worker:
+    image: gettyimages/spark:2.3.0-hadoop-2.8
+    container_name: worker
+    command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://master:7077
+    hostname: worker
+    environment:
+      SPARK_CONF_DIR: /conf
+      SPARK_WORKER_CORES: 2
+      SPARK_WORKER_MEMORY: 1g
+      SPARK_WORKER_PORT: 8881
+      SPARK_WORKER_WEBUI_PORT: 8081
+      SPARK_PUBLIC_DNS: localhost
+    links:
+      - master
+    expose:
+      - 7012
+      - 7013
+      - 7014
+      - 7015
+      - 8881
     ports:
-    - "8090:8080"
+      - 8081:8081
+    volumes:
+      - ./conf/worker:/conf
+      - ./data:/tmp/data
+
+volumes:
+  hadoop_namenode:
+  hadoop_datanode1:
+  hadoop_datanode2:
+  hadoop_datanode3:
+  hadoop_historyserver:
