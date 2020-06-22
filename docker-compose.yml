@@ -103,6 +103,7 @@ services:
       - ./conf/master:/conf
       - ./data:/tmp/data
       - ./jars:/root/jars
+      - ./log:/spark-log
 
   worker:
     image: gettyimages/spark:2.3.0-hadoop-2.8

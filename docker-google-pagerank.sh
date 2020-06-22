@@ -1,8 +1,9 @@
 #!/bin/sh
 docker exec -it master spark-submit \
---class part1.Wiki \
+--class lab.Google \
 --executor-memory 512m \
 --total-executor-cores 2 \
-/root/jars/lab1.jar \
+/root/jars/Graphx_jar/Graphx.jar \
 pagerank \
-web-Google.txt
+hdfs://namenode:8020/input/web-Google.txt \
+--numEPart=1000 > google-pagerank.log
