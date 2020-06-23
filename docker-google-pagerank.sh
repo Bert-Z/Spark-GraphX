@@ -1,7 +1,6 @@
 #!/bin/sh
 docker exec -it master spark-submit \
 --class lab.Google \
---executor-memory 512m \
 --total-executor-cores 2 \
 /root/jars/Graphx_jar/Graphx.jar \
 pagerank \
